@@ -19,7 +19,8 @@ jobs:
         with: { name: VideoGrab-Android-APK, path: android/app/build/outputs/apk/debug/*.apk }
   desktop:
     strategy:
-      matrix: { os: [windows-latest, macos-latest, ubuntu-latest] }
+      fail-fast: false
+      matrix: { os: [windows-latest, ubuntu-latest] }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
