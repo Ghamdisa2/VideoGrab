@@ -1,4 +1,5 @@
 import os, sys, threading, queue
+import tkinter as tk
 from tkinter import filedialog
 import customtkinter as ctk
 import yt_dlp
@@ -17,7 +18,8 @@ T = {
         "playlist": "تحميل قائمة التشغيل كاملة",
         "folder": "تغيير المجلد", "dl": "⬇  تحميل", "busy": "جارٍ التحميل...",
         "ready": "جاهز", "processing": "جارٍ المعالجة...", "item": "العنصر",
-        "fail": "✘ فشل: ", "done": "اكتمل: {ok}/{n} - الملفات في {d}", "lang": "English",
+        "fail": "✘ فشل: ", "done": "اكتمل: {ok}/{n} - الملفات في {d}", "lang": "English", "paste": "📋 لصق", "clear": "مسح",
+        "m": ["قص", "نسخ", "لصق", "تحديد الكل"],
     },
     "en": {
         "title": "VideoGrab - Video & Audio Downloader",
@@ -28,7 +30,8 @@ T = {
         "playlist": "Download entire playlist",
         "folder": "Change folder", "dl": "⬇  Download", "busy": "Downloading...",
         "ready": "Ready", "processing": "Processing...", "item": "Item",
-        "fail": "✘ Failed: ", "done": "Done: {ok}/{n} - files in {d}", "lang": "العربية",
+        "fail": "✘ Failed: ", "done": "Done: {ok}/{n} - files in {d}", "lang": "العربية", "paste": "📋 Paste", "clear": "Clear",
+        "m": ["Cut", "Copy", "Paste", "Select all"],
     },
 }
 HEIGHTS = [None, 2160, 1440, 1080, 720, 480]
@@ -81,11 +84,14 @@ class App(ctk.CTk):
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.pack(fill="x", padx=20, pady=(14, 0))
         ctk.CTkButton(top, text=self.t("lang"), width=90, command=self._toggle_lang).pack(side="right")
+        ctk.CTkButton(top, text=self.t("paste"), width=90, command=self._paste).pack(side="left")
+        ctk.CTkButton(top, text=self.t("clear"), width=70, fg_color="gray30", command=self._clear).pack(side="left", padx=8)
         ctk.CTkLabel(self, text="VideoGrab", font=("Segoe UI", 28, "bold")).pack()
         ctk.CTkLabel(self, text=self.t("hint"), text_color="gray70").pack(pady=(0, 8))
         self.urls = ctk.CTkTextbox(self, height=110)
         self.urls.pack(fill="x", padx=20)
         self.urls.insert("1.0", self.s_urls)
+        self._edit_bindings()
 
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(12, 4))
@@ -122,6 +128,49 @@ class App(ctk.CTk):
         self.log.pack(fill="both", expand=True, padx=20, pady=(0, 16))
         if self.busy:
             self.btn.configure(state="disabled", text=self.t("busy"))
+
+    def _paste(self):
+        try:
+            txt = self.clipboard_get().strip()
+        except Exception:
+            return
+        if not txt:
+            return
+        sep = "\n" if self.urls.get("1.0", "end").strip() else ""
+        self.urls.insert("end", sep + txt)
+        self.urls.see("end")
+
+    def _clear(self):
+        self.urls.delete("1.0", "end")
+
+    def _edit_bindings(self):
+        """Ctrl+C/V/X/A that work with ANY keyboard layout (e.g. Arabic) + right-click menu."""
+        inner = self.urls._textbox
+
+        def on_ctrl(e):
+            if sys.platform != "win32":
+                return None
+            k = e.keycode
+            if k == 86:
+                self._paste()
+            elif k == 67:
+                inner.event_generate("<<Copy>>")
+            elif k == 88:
+                inner.event_generate("<<Cut>>")
+            elif k == 65:
+                inner.tag_add("sel", "1.0", "end-1c")
+            else:
+                return None
+            return "break"
+
+        inner.bind("<Control-KeyPress>", on_ctrl)
+        m = self.t("m")
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label=m[0], command=lambda: inner.event_generate("<<Cut>>"))
+        menu.add_command(label=m[1], command=lambda: inner.event_generate("<<Copy>>"))
+        menu.add_command(label=m[2], command=self._paste)
+        menu.add_command(label=m[3], command=lambda: inner.tag_add("sel", "1.0", "end-1c"))
+        inner.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
 
     def _choose_dir(self):
         d = filedialog.askdirectory(initialdir=self.out_dir)
