@@ -1,5 +1,5 @@
-yt-dlp
+yt-dlp[default,curl-cffi]
 customtkinter
 imageio-ffmpeg
-pyinstaller
 pillow
+pyinstaller

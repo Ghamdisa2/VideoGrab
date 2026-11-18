@@ -29,6 +29,7 @@ T = {
         "ready": "جاهز", "processing": "جارٍ المعالجة...", "item": "العنصر",
         "fail": "✘ فشل: ", "done": "اكتمل: {ok}/{n} - الملفات في {d}", "lang": "English",
         "paste": "📋  لصق", "clear": "مسح", "log": "السجل",
+        "tip": "💡 جرّب: اختر \"كوكيز من المتصفح\" (firefox أفضل)، أو أعد المحاولة بعد قليل.",
         "m": ["قص", "نسخ", "لصق", "تحديد الكل"], "anchor": "e",
     },
     "en": {
@@ -44,11 +45,22 @@ T = {
         "ready": "Ready", "processing": "Processing...", "item": "Item",
         "fail": "✘ Failed: ", "done": "Done: {ok}/{n} - files in {d}", "lang": "العربية",
         "paste": "📋  Paste", "clear": "Clear", "log": "Log",
+        "tip": "💡 Try: set \"Cookies from browser\" (firefox works best), or retry in a moment.",
         "m": ["Cut", "Copy", "Paste", "Select all"], "anchor": "w",
     },
 }
 HEIGHTS = [None, 2160, 1440, 1080, 720, 480]
 BROWSERS = [None, "chrome", "firefox", "edge", "brave"]
+
+
+def impersonate_target():
+    """Chrome-like TLS fingerprint (needed by TikTok and others). None if curl_cffi unavailable."""
+    try:
+        import curl_cffi  # noqa: F401
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+        return ImpersonateTarget.from_str("chrome")
+    except Exception:
+        return None
 
 
 def res_path(name):
@@ -301,6 +313,9 @@ class App(ctk.CTk):
             "quiet": True, "no_warnings": True,
             "windowsfilenames": True, "retries": 5,
         }
+        imp = impersonate_target()
+        if imp:
+            o["impersonate"] = imp
         if self.s_b:
             o["cookiesfrombrowser"] = (BROWSERS[self.s_b],)
         if self.s_mode == 1:
@@ -337,7 +352,11 @@ class App(ctk.CTk):
                         self.q.put(("log", f"✔ {info.get('title', '')}" + (f" ({cnt})" if cnt else "")))
                         ok += 1
             except Exception as e:
-                self.q.put(("log", self.t("fail") + str(e)[:200]))
+                msg = str(e).replace("ERROR: ", "")
+                msg = msg.split("; please report")[0][:220]
+                self.q.put(("log", self.t("fail") + msg))
+                if any(k in msg for k in ("Unexpected response", "403", "login", "cookies", "Sign in")):
+                    self.q.put(("log", self.t("tip")))
         self.q.put(("done", self.t("done").format(ok=ok, n=len(links), d=self.out_dir)))
 
 
